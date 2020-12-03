@@ -32,5 +32,6 @@ func main() {
 	r.HandleFunc("/api/createModel", env.CreateModel).Methods("POST")
 	r.HandleFunc("/api/updateModelDescription/{modelid}/{modeldescription}", env.UpdateModelDescription).Methods("PUT")
 	r.HandleFunc("/api/deleteModel/{modelid}", env.DeleteModel).Methods("DELETE")
+	r.HandleFunc("/api/insertTrainingData", env.InsertTrainingData).Methods("POST")
 	http.ListenAndServe(":8000", r)
 }
