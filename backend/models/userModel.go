@@ -2,8 +2,8 @@ package models
 
 import (
 	"database/sql"
+	"log"
 
-	"fmt"
 	"strconv"
 
 	"golang.org/x/crypto/bcrypt"
@@ -44,70 +44,101 @@ func (m UserModel) GetUserFromDB(userID string) (User, error) {
 //InsertUserToDB Insert one user to Db
 func (m UserModel) InsertUserToDB(user User) (string, error) {
 
-	row, err := m.DB.Query("SELECT MAX(UserID) FROM MsUser")
-
-	if err != nil {
-		panic(err.Error())
-	}
-	defer row.Close()
-
 	var maxUserID string
-	for row.Next() {
-		err = row.Scan(&maxUserID)
+	var newUserID string
+	err := m.DB.QueryRow("SELECT MAX(UserID) FROM MsUser").Scan(&maxUserID)
 
+	switch {
+	case err == sql.ErrNoRows:
+		newUserID = "U001"
+	case err != nil:
+		log.Fatal(err)
+	default:
+		maxUserID = maxUserID[1:4]
+		nextUserIDInt, err := strconv.Atoi(maxUserID)
 		if err != nil {
-			panic(err.Error())
+			log.Fatal(err)
 		}
-	}
-	maxUserID = maxUserID[1:4]
-	nextUserIDInt, err := strconv.Atoi(maxUserID)
-	newUserID := "U"
-	nextUserIDInt = nextUserIDInt + 1
-	maxUserID = strconv.Itoa(nextUserIDInt)
+		newUserID = "U"
+		nextUserIDInt = nextUserIDInt + 1
+		maxUserID = strconv.Itoa(nextUserIDInt)
 
-	for i := 0; i < 3-len(maxUserID); i++ {
-		newUserID = newUserID + "0"
+		for i := 0; i < 3-len(maxUserID); i++ {
+			newUserID = newUserID + "0"
+		}
+		newUserID = newUserID + maxUserID
+
 	}
-	newUserID = newUserID + maxUserID
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(user.Password), 14)
 	hashedPass := string(bytes)
 
-	insert, err := m.DB.Query("INSERT INTO MsUser VALUES('" + newUserID + "','" + user.UserName + "','" + hashedPass + "')")
+	insert, err := m.DB.Exec("INSERT INTO MsUser VALUES('" + newUserID + "','" + user.UserName + "','" + hashedPass + "')")
 
 	if err != nil {
-		panic(err.Error())
+		log.Fatal(err)
 	}
-	defer insert.Close()
 
-	return "Successfully inserted data with User ID: " + newUserID, nil
+	rows, err := insert.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rows != 1 {
+		return "", nil
+	}
+
+	return newUserID, nil
 }
 
 //UpdateUserToDB Update specific user to db
-func (m UserModel) UpdateUserToDB(user User) (string, error) {
+func (m UserModel) UpdateUserToDB(user User) (bool, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(user.Password), 14)
 	hashedPass := string(bytes)
 
-	update, err := m.DB.Query("UPDATE MsUser SET Username = '" + user.UserName + "', Password = '" + hashedPass + "' WHERE UserID = '" + user.UserID + "'")
+	update, err := m.DB.Exec("UPDATE MsUser SET Username = '" + user.UserName + "', Password = '" + hashedPass + "' WHERE UserID = '" + user.UserID + "'")
 
 	if err != nil {
 		panic(err.Error())
 	}
-	defer update.Close()
 
-	return "Successfully updated data with User ID: " + user.UserID, nil
+	rows, err := update.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rows != 1 {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 //DeleteUserFromDB Hard deletes a user from db
-func (m UserModel) DeleteUserFromDB(userID string) (string, error) {
-
-	delete, err := m.DB.Query("DELETE FROM MsUser WHERE UserID = '" + userID + "'")
-
-	fmt.Println(delete)
+func (m UserModel) DeleteUserFromDB(userID string) (bool, error) {
+	deleteModel, err := m.DB.Exec("DELETE FROM TrModels WHERE UserID = '" + userID + "'")
 	if err != nil {
-		panic(err.Error())
+		log.Fatal(err)
 	}
-	defer delete.Close()
+	rowsModel, err := deleteModel.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rowsModel != 1 {
 
-	return "Successfully deleted user with User ID: " + userID, nil
+	}
+
+	delete, err := m.DB.Exec("DELETE FROM MsUser WHERE UserID = '" + userID + "'")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows, err := delete.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rows != 1 {
+		return false, nil
+	}
+
+	return true, nil
 }
