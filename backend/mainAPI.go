@@ -2,15 +2,42 @@ package main
 
 import (
 	"database/sql"
+	"log"
 	h "ml_website_project/backend/handlers"
 	m "ml_website_project/backend/models"
 	"net/http"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+
+	"gopkg.in/oauth2.v3/errors"
+	"gopkg.in/oauth2.v3/manage"
+	"gopkg.in/oauth2.v3/server"
+	"gopkg.in/oauth2.v3/store"
 )
 
 func main() {
+
+	manager := manage.NewDefaultManager()
+
+	manager.MustTokenStorage(store.NewMemoryTokenStore())
+
+	clientStore := store.NewClientStore()
+	manager.MapClientStorage(clientStore)
+
+	srv := server.NewDefaultServer(manager)
+	srv.SetAllowGetAccessRequest(true)
+	srv.SetClientInfoHandler(server.ClientFormHandler)
+	manager.SetRefreshTokenCfg(manage.DefaultRefreshTokenCfg)
+
+	srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
+		log.Println("Internal Error:", err.Error())
+		return
+	})
+
+	srv.SetResponseErrorHandler(func(re *errors.Response) {
+		log.Println("Response Error:", re.Error.Error())
+	})
+
 	r := mux.NewRouter()
 
 	db, err := sql.Open("mysql", "root:Badger-85@tcp(127.0.0.1:3306)/MLDB")

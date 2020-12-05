@@ -27,7 +27,7 @@ func (m UserModel) GetUserFromDB(userID string) (User, error) {
 
 	var user User
 	if err != nil {
-		panic(err.Error())
+		log.Fatal(err)
 	}
 	defer row.Close()
 
@@ -35,10 +35,33 @@ func (m UserModel) GetUserFromDB(userID string) (User, error) {
 		err = row.Scan(&user.UserID, &user.UserName, &user.Password)
 
 		if err != nil {
-			panic(err.Error())
+			log.Fatal(err)
 		}
 	}
 	return user, nil
+}
+
+func (m UserModel) GetUserIDFromDB(username string, password string) (string, error) {
+	stmt, err := m.DB.Prepare("SELECT UserID FROM MsUser WHERE Username = '?' AND Password = '?'")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	get := stmt.QueryRow(username, password)
+
+	var userID string
+
+	err = get.Scan(&userID)
+
+	switch err {
+	case nil:
+		log.Fatal(err)
+	case sql.ErrNoRows:
+		return "", nil
+
+	}
+
+	return userID, nil
 }
 
 //InsertUserToDB Insert one user to Db
