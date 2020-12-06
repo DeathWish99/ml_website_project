@@ -41,55 +41,48 @@ func (m UserModel) GetUserFromDB(userID string) (User, error) {
 	return user, nil
 }
 
-func (m UserModel) GetUserIDFromDB(username string, password string) (string, error) {
-	stmt, err := m.DB.Prepare("SELECT UserID FROM MsUser WHERE Username = '?' AND Password = '?'")
+func (m UserModel) GetUserPasswordFromDB(username string) (string, error) {
+	get := m.DB.QueryRow("SELECT Password FROM MsUser WHERE Username = '" + username + "'")
+
+	var password string
+
+	err := get.Scan(&password)
+
 	if err != nil {
 		log.Fatal(err)
+	} else if err == sql.ErrNoRows {
+		return "", err
 	}
 
-	get := stmt.QueryRow(username, password)
-
-	var userID string
-
-	err = get.Scan(&userID)
-
-	switch err {
-	case nil:
-		log.Fatal(err)
-	case sql.ErrNoRows:
-		return "", nil
-
-	}
-
-	return userID, nil
+	return password, nil
 }
 
 //InsertUserToDB Insert one user to Db
 func (m UserModel) InsertUserToDB(user User) (string, error) {
 
-	var maxUserID string
+	var maxUserID sql.NullString
 	var newUserID string
 	err := m.DB.QueryRow("SELECT MAX(UserID) FROM MsUser").Scan(&maxUserID)
 
 	switch {
-	case err == sql.ErrNoRows:
+	case !maxUserID.Valid:
 		newUserID = "U001"
 	case err != nil:
 		log.Fatal(err)
 	default:
-		maxUserID = maxUserID[1:4]
-		nextUserIDInt, err := strconv.Atoi(maxUserID)
+		maxUserID.String = maxUserID.String[1:4]
+		nextUserIDInt, err := strconv.Atoi(maxUserID.String)
 		if err != nil {
 			log.Fatal(err)
 		}
 		newUserID = "U"
 		nextUserIDInt = nextUserIDInt + 1
-		maxUserID = strconv.Itoa(nextUserIDInt)
+		maxUserID.String = strconv.Itoa(nextUserIDInt)
 
-		for i := 0; i < 3-len(maxUserID); i++ {
+		for i := 0; i < 3-len(maxUserID.String); i++ {
 			newUserID = newUserID + "0"
 		}
-		newUserID = newUserID + maxUserID
+		newUserID = newUserID + maxUserID.String
 
 	}
 

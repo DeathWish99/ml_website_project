@@ -4,26 +4,12 @@ import (
 	"encoding/json"
 	"log"
 	m "ml_website_project/backend/models"
-	"time"
 
 	"net/http"
 
-	"github.com/dgrijalva/jwt-go"
-	"github.com/go-session/session"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
-
-const (
-	secret = "?#$!524451XASD"
-)
-
-var jwtKey = []byte(secret)
-
-type Claims struct {
-	Username string `json:"username"`
-	jwt.StandardClaims
-}
 
 //GetUser Send request to model to GetUser
 func (env *Env) GetUser(w http.ResponseWriter, r *http.Request) {
@@ -119,6 +105,7 @@ func (env *Env) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//Login login handler
 func (env *Env) Login(w http.ResponseWriter, r *http.Request) {
 	var user m.User
 
@@ -129,52 +116,29 @@ func (env *Env) Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	bytes, err := bcrypt.GenerateFromPassword([]byte(user.Password), 14)
-	user.Password = string(bytes)
-
-	userID, err := env.User.GetUserIDFromDB(user.UserName, user.Password)
+	encryptedPassword, err := env.User.GetUserPasswordFromDB(user.UserName)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
-	} else if len(userID) <= 0 {
+	} else if len(encryptedPassword) <= 0 {
 		log.Println(err)
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	user, err = env.User.GetUserFromDB(userID)
+	encryptionErr := bcrypt.CompareHashAndPassword([]byte(encryptedPassword), []byte(user.Password))
+	if encryptionErr == nil {
+		user.Password = encryptedPassword
+	} else {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	response, err := generateJWTToken(user)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	expirationTime := time.Now().Add(5 * time.Minute)
-
-	claims := &Claims{
-		Username: user.UserName,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	tokenString, err := token.SignedString(jwtKey)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	store, err := session.Start(nil, w, r)
-
-	if r.Method == "POST" {
-		store.Set(userID, tokenString)
-		store.Save()
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:    "token",
-		Value:   tokenString,
-		Expires: expirationTime,
-	})
+	json.NewEncoder(w).Encode(response)
 }

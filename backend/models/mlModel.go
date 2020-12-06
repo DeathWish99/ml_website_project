@@ -56,17 +56,17 @@ func (m MLModel) InsertModelToDB(ml ML) (bool, error) {
 	}
 	defer stmt.Close()
 
-	var maxModelID int
+	var maxModelID sql.NullInt32
 	var newModelID int
 	err1 := m.DB.QueryRow("SELECT MAX(ModelID) FROM TrModels").Scan(&maxModelID)
 
 	switch {
-	case err1 == sql.ErrNoRows:
+	case !maxModelID.Valid:
 		newModelID = 1
 	case err != nil:
 		log.Fatal(err1)
 	default:
-		newModelID = maxModelID + 1
+		newModelID = int(maxModelID.Int32) + 1
 	}
 
 	insert, err := stmt.Exec(newModelID, ml.UserID, ml.ModelDescription, ml.CategoryID, ml.FolderName, ml.Downloadable)

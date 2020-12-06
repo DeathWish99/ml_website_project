@@ -9,7 +9,7 @@ type Env struct {
 		InsertUserToDB(user m.User) (string, error)
 		UpdateUserToDB(user m.User) (bool, error)
 		DeleteUserFromDB(userID string) (bool, error)
-		GetUserIDFromDB(username string, password string) (string, error)
+		GetUserPasswordFromDB(username string) (string, error)
 	}
 	ML interface {
 		GetAllModelsByUserFromDB(userID string) ([]m.ML, error)
