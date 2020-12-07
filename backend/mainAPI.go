@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	c "ml_website_project/backend/config"
 	h "ml_website_project/backend/handlers"
 	m "ml_website_project/backend/models"
 	"net/http"
@@ -14,7 +15,7 @@ func main() {
 
 	r := mux.NewRouter()
 
-	db, err := sql.Open("mysql", "root:Badger-85@tcp(127.0.0.1:3306)/MLDB")
+	db, err := sql.Open("mysql", c.GetUserPasswordDB()+"@tcp("+c.GetConnectionString()+")/"+c.GetDBName()+"")
 
 	if err != nil {
 		panic(err.Error())
@@ -37,5 +38,5 @@ func main() {
 	r.HandleFunc("/api/insertTrainingData", env.InsertTrainingData).Methods("POST")
 	r.HandleFunc("/api/token", env.GetNewToken).Methods("GET")
 
-	http.ListenAndServe(":8000", r)
+	http.ListenAndServe(c.GetPort(), r)
 }

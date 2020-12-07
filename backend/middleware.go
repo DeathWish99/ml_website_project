@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"mime"
+	c "ml_website_project/backend/config"
 	"net/http"
 	"strings"
 
@@ -36,8 +38,26 @@ func authorize(next http.Handler) http.Handler {
 		req = split[1]
 
 		token, err := jwt.Parse(req, func(t *jwt.Token) (interface{}, error) {
-			return []byte(SecretKey), nil
+			_, ok := t.Method.(*jwt.SigningMethodHMAC)
+			if !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
+			}
+
+			return []byte(c.GetSecret()), nil
 		})
+
+		if err != nil {
+			if err == jwt.ErrSignatureInvalid {
+				http.Error(w, "Signature Invalid", http.StatusUnauthorized)
+			}
+			http.Error(w, "Something went wrong", http.StatusBadRequest)
+			return
+		}
+
+		if !token.Valid {
+			http.Error(w, "Unauthorized token", http.StatusUnauthorized)
+		}
+		next.ServeHTTP(w, r)
 	})
 
 }
