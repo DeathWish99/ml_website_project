@@ -18,7 +18,7 @@ type Config struct {
 //LoadConfiguration load from config.json
 func LoadConfiguration() Config {
 	var config Config
-	configFile, err := os.Open("config.json")
+	configFile, err := os.Open("config/config.json")
 	defer configFile.Close()
 	if err != nil {
 		fmt.Println(err.Error())
